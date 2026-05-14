@@ -50,28 +50,31 @@ prepare_workdir(){
 
     echo "#define TUGEN8_DRV_VERSION \"\"" > ./src/freedreno/vulkan/tu_version.h
 
-    # ── Aplicar patches (itens 1, 2, 3) ──────────────────────
-    # Ajuste de caminho para o GitHub Actions
+    # ── Aplicar patches (itens 1, 3) ──────────────────────
     PATCHDIR="../../patches"
 
     echo "[*] Patch 1 – Desativa autotuner (force_sysmem_no_autotuner)..."
     patch -p1 < "$PATCHDIR/force_sysmem_no_autotuner.patch" || echo "Aviso: Falha no patch 1"
 
-    echo "[*] Patch 2 – GPU gen8 clean (tu_gen8_clean)..."
-    patch -p1 < "$PATCHDIR/tu_gen8_clean.patch" || echo "Aviso: Falha no patch 2"
-
     echo "[*] Patch 3 – Timeline sync Vulkan (vk_sync_timeline)..."
     patch -p1 < "$PATCHDIR/vk_sync_timeline.patch" || echo "Aviso: Falha no patch 3"
+
+    # NOTA: O patch 2 (tu_gen8_clean) foi removido pois causa erro de compilação 
+    # e é focado em Adreno 8xx, não sendo necessário para a Adreno 6xx do usuário.
 
     echo "[*] Processo de patches finalizado."
 }
 
 build_lib_for_android(){
     cd "$workdir/$srcfolder"
+    # Mantendo gen8 pois o repositório mesa-tu8 usa esse nome de branch para as otimizações
     git checkout "origin/$1"
 
     sed -i 's/ (%s)//g' src/freedreno/vulkan/tu_device.cc || true
     sed -i 's/ (%s)//g' src/freedreno/vulkan/tu_device.c || true
+
+    # Correção manual para o erro NameError: name 'a8xx_gen2_raw_magic_regs' is not defined
+    sed -i 's/a8xx_gen2_raw_magic_regs/a8xx_base_raw_magic_regs/g' src/freedreno/common/freedreno_devices.py || true
 
     sed -i '/a7xx_gen1 = GPUProps(/a \        has_early_preamble = False,' src/freedreno/common/freedreno_devices.py || true
     sed -i 's/typedef const native_handle_t\* buffer_handle_t;/typedef void\* buffer_handle_t;/g' include/android_stub/cutils/native_handle.h || true
@@ -166,7 +169,7 @@ EOF
 {
   "schemaVersion": 1,
   "name": "Turnip Adreno6xx ETS2-60FPS",
-  "description": "Optimized Turnip: sysmem forced, gen8 patches, Vulkan timeline sync, O3+SIMD+LTO build. For Winlator/AdrenoTools.",
+  "description": "Optimized Turnip: sysmem forced, Vulkan timeline sync, O3+SIMD+LTO build. For Winlator/AdrenoTools.",
   "author": "custom-build",
   "packageVersion": "1",
   "vendor": "Mesa",
