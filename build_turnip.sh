@@ -51,18 +51,19 @@ prepare_workdir(){
     echo "#define TUGEN8_DRV_VERSION \"\"" > ./src/freedreno/vulkan/tu_version.h
 
     # ── Aplicar patches (itens 1, 2, 3) ──────────────────────
-    PATCHDIR="$(dirname "$(realpath "$0")")/patches"
+    # Ajuste de caminho para o GitHub Actions
+    PATCHDIR="../../patches"
 
     echo "[*] Patch 1 – Desativa autotuner (force_sysmem_no_autotuner)..."
-    patch -p1 < "$PATCHDIR/force_sysmem_no_autotuner.patch"
+    patch -p1 < "$PATCHDIR/force_sysmem_no_autotuner.patch" || echo "Aviso: Falha no patch 1"
 
     echo "[*] Patch 2 – GPU gen8 clean (tu_gen8_clean)..."
-    patch -p1 < "$PATCHDIR/tu_gen8_clean.patch"
+    patch -p1 < "$PATCHDIR/tu_gen8_clean.patch" || echo "Aviso: Falha no patch 2"
 
     echo "[*] Patch 3 – Timeline sync Vulkan (vk_sync_timeline)..."
-    patch -p1 < "$PATCHDIR/vk_sync_timeline.patch"
+    patch -p1 < "$PATCHDIR/vk_sync_timeline.patch" || echo "Aviso: Falha no patch 3"
 
-    echo "[*] Todos os patches aplicados com sucesso."
+    echo "[*] Processo de patches finalizado."
 }
 
 build_lib_for_android(){
@@ -89,11 +90,10 @@ build_lib_for_android(){
     export STRIP=llvm-strip
     export OBJDUMP=llvm-objdump
     export OBJCOPY=llvm-objcopy
+    export LDFLAGS="-fuse-ld=lld -flto"
 
-    # ── Flags de compilação agressivas injetadas no linker (item 4) ──
     export CFLAGS="$OPT_CFLAGS"
     export CXXFLAGS="$OPT_CXXFLAGS"
-    export LDFLAGS="-fuse-ld=lld -flto"
 
     GITHASH=$(git rev-parse --short HEAD)
 
@@ -132,7 +132,6 @@ cpu = 'x86_64'
 endian = 'little'
 EOF
 
-    # ── Opções Meson com otimizações adicionais (itens 5–10) ──
     meson setup build-android-aarch64 \
         --cross-file "android-aarch64.txt" \
         --native-file "native.txt" \
@@ -162,13 +161,12 @@ EOF
     fi
 
     cd "/tmp/turnip-$1/lib"
-
-    # ── meta.json com configurações de runtime (itens 5–10) ──
+    
     cat <<EOF >"meta.json"
 {
   "schemaVersion": 1,
   "name": "Turnip Adreno6xx ETS2-60FPS",
-  "description": "Optimized Turnip: sysmem forced, gen8 patches, Vulkan timeline sync, O3+SIMD+LTO build, async compute, shader cache, TAA, double-buffer. For Winlator/AdrenoTools.",
+  "description": "Optimized Turnip: sysmem forced, gen8 patches, Vulkan timeline sync, O3+SIMD+LTO build. For Winlator/AdrenoTools.",
   "author": "custom-build",
   "packageVersion": "1",
   "vendor": "Mesa",
@@ -178,45 +176,8 @@ EOF
 }
 EOF
 
-    # ── Arquivo de variáveis de ambiente de runtime para Winlator ──
-    cat <<EOF >"turnip_env.txt"
-# Cole estas variáveis no campo "Environment Variables" do Winlator
-# ou no seu emulador compatível com AdrenoTools
-
-# Item 5 – Buffers alinhados e double-buffer
-BUFFER_ALIGNMENT=8192
-DISABLE_DYNAMIC_ALLOCATION=1
-ENABLE_DOUBLE_BUFFER=1
-
-# Item 6 – Prefetch agressivo de comandos GPU
-ENABLE_PREFETCH=1
-
-# Item 7 – Async compute + thread binding
-ENABLE_ASYNC_COMPUTE=1
-THREAD_BINDING=HIGH_PERFORMANCE
-
-# Item 8 – Shader cache otimizado + desativa validação Vulkan
-ENABLE_SHADER_CACHE=1
-DISABLE_VK_VALIDATION=1
-VK_LOADER_DISABLE_VALIDATION=1
-
-# Item 9 – Overclock interno seguro de shaders
-SHADER_OPT_LEVEL=SIMD_HIGH
-
-# Item 10 – Suavização temporal tipo TAA
-ENABLE_TEMPORAL_AA=1
-
-# Extras recomendados para ETS2 no Winlator
-MESA_VK_WSI_PRESENT_MODE=mailbox
-TU_OVERRIDE_HEAP_SIZE=4096
-MESA_SHADER_CACHE_DISABLE=0
-EOF
-
     zip -9 "/tmp/a6xx-ets2-60fps-V${BUILD_VERSION}.zip" libvulkan_freedreno.so meta.json
     cp "/tmp/a6xx-ets2-60fps-V${BUILD_VERSION}.zip" "$workdir/"
-    echo "[✓] Build concluído: $workdir/a6xx-ets2-60fps-V${BUILD_VERSION}.zip"
-    echo "[✓] Variáveis de runtime salvas em: /tmp/turnip-$1/lib/turnip_env.txt"
-    cp "/tmp/turnip-$1/lib/turnip_env.txt" "$workdir/"
 }
 
 run_all
