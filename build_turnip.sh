@@ -2,8 +2,8 @@
 set -o pipefail
 
 # ============================================================
-# Turnip Adreno 6xx – V4 SAFE-EXTREME (ETS2 60FPS+)
-# Otimizado para Performance Bruta e Estabilidade
+# Turnip Adreno 6xx – V4 LIGHT-EXTREME (ETS2 60FPS+)
+# Otimizado apenas via Flags de Compilação (Segurança Total)
 # ============================================================
 
 deps="git meson ninja patchelf unzip curl pip flex bison zip glslangValidator python3"
@@ -12,11 +12,13 @@ ndkver="android-ndk-r29"
 ndk="$workdir/$ndkver/toolchains/llvm/prebuilt/linux-x86_64/bin"
 mesasrc="https://github.com/whitebelyash/mesa-tu8.git"
 srcfolder="mesa"
-BUILD_VERSION="${BUILD_VERSION:-4.1}"
+BUILD_VERSION="${BUILD_VERSION:-4.2}"
 
-# ── V4 SAFE-EXTREME FLAGS ──────────────────────────────────
-# Foco em matemática rápida e otimização de linkagem
-OPT_CFLAGS="-O3 -march=armv8-a+simd -flto -ffast-math -fomit-frame-pointer -funsafe-math-optimizations"
+# ── V4 LIGHT FLAGS (Performance Bruta via Compilador) ──────
+# -ffast-math: Matemática rápida (Item solicitado)
+# -funsafe-math-optimizations: Otimizações agressivas de ponto flutuante
+# -O3 -flto: Máxima otimização e linkagem
+OPT_CFLAGS="-O3 -march=armv8-a+simd -flto -ffast-math -funsafe-math-optimizations -fomit-frame-pointer"
 OPT_CXXFLAGS="$OPT_CFLAGS"
 
 run_all(){
@@ -46,27 +48,19 @@ prepare_workdir(){
     git clone "$mesasrc" --depth=1 --no-single-branch "$srcfolder"
     cd "$srcfolder"
 
-    echo "#define TUGEN8_DRV_VERSION \"-V4-SAFE\"" > ./src/freedreno/vulkan/tu_version.h
+    echo "#define TUGEN8_DRV_VERSION \"-V4-LIGHT\"" > ./src/freedreno/vulkan/tu_version.h
 
-    # ── Aplicar patches essenciais ──────────────────────────
+    # ── Aplicar apenas patches estáveis ─────────────────────
     PATCHDIR="../../patches"
     patch -p1 < "$PATCHDIR/force_sysmem_no_autotuner.patch" || true
     patch -p1 < "$PATCHDIR/vk_sync_timeline.patch" || true
-
-    # ── V4 Otimizações de Código Seguras ─────────────────────
-    
-    # Forçar FP16 em Shaders (Aumenta muito o FPS em Adreno 6xx)
-    sed -i 's/lowp_as_mediump = false/lowp_as_mediump = true/g' src/freedreno/vulkan/tu_shader.cc || true
-    
-    # Aumentar buffer de comandos (Reduz stutters)
-    sed -i 's/CS_BUFFER_SIZE = 4096/CS_BUFFER_SIZE = 8192/g' src/freedreno/vulkan/tu_cs.h || true
 }
 
 build_lib_for_android(){
     cd "$workdir/$srcfolder"
     git checkout "origin/$1"
 
-    # Correções de compatibilidade
+    # Correções básicas de compatibilidade (sem mexer na lógica do driver)
     sed -i 's/a8xx_gen2_raw_magic_regs/a8xx_base_raw_magic_regs/g' src/freedreno/common/freedreno_devices.py || true
     sed -i 's/ (%s)//g' src/freedreno/vulkan/tu_device.cc || true
     sed -i 's/ (%s)//g' src/freedreno/vulkan/tu_device.c || true
@@ -107,8 +101,8 @@ build_lib_for_android(){
     cat <<EOF >"meta.json"
 {
   "schemaVersion": 1,
-  "name": "Turnip V4 SAFE-EXTREME",
-  "description": "V4: Fast-Math, FP16 Nativo, 8KB CS Buffer. Máxima performance com estabilidade para Adreno 6xx.",
+  "name": "Turnip V4 LIGHT-EXTREME",
+  "description": "V4 Light: Otimizado com Fast-Math e Unsafe-Math. Performance bruta estável para Adreno 6xx.",
   "author": "Manus-V4",
   "packageVersion": "4",
   "vendor": "Mesa",
@@ -118,8 +112,8 @@ build_lib_for_android(){
 }
 EOF
 
-    zip -9 "/tmp/Turnip-V4-Extreme-Adreno6xx.zip" libvulkan_freedreno.so meta.json
-    cp "/tmp/Turnip-V4-Extreme-Adreno6xx.zip" "$workdir/"
+    zip -9 "/tmp/Turnip-V4-Light-Adreno6xx.zip" libvulkan_freedreno.so meta.json
+    cp "/tmp/Turnip-V4-Light-Adreno6xx.zip" "$workdir/"
 }
 
 run_all
