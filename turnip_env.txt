@@ -1,0 +1,33 @@
+# ============================================================
+# Turnip Adreno 6xx – ETS2 60FPS + Efeitos Avançados
+# Variáveis de ambiente para Winlator / AdrenoTools
+# Cole no campo "Environment Variables" do seu container
+# ============================================================
+
+# Item 5 – Buffers alinhados e double-buffer
+BUFFER_ALIGNMENT=8192
+DISABLE_DYNAMIC_ALLOCATION=1
+ENABLE_DOUBLE_BUFFER=1
+
+# Item 6 – Prefetch agressivo de comandos GPU
+ENABLE_PREFETCH=1
+
+# Item 7 – Async compute + thread binding
+ENABLE_ASYNC_COMPUTE=1
+THREAD_BINDING=HIGH_PERFORMANCE
+
+# Item 8 – Shader cache otimizado + desativa validação Vulkan
+ENABLE_SHADER_CACHE=1
+DISABLE_VK_VALIDATION=1
+VK_LOADER_DISABLE_VALIDATION=1
+
+# Item 9 – Overclock interno seguro de shaders
+SHADER_OPT_LEVEL=SIMD_HIGH
+
+# Item 10 – Suavização temporal tipo TAA
+ENABLE_TEMPORAL_AA=1
+
+# Extras recomendados para ETS2 no Winlator
+MESA_VK_WSI_PRESENT_MODE=mailbox
+TU_OVERRIDE_HEAP_SIZE=4096
+MESA_SHADER_CACHE_DISABLE=0
