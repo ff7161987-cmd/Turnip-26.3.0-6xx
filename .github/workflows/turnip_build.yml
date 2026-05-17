@@ -20,7 +20,10 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build patchelf unzip flex bison git perl python3-pip glslang-tools curl zip
+          sudo apt-get install -y \
+            ninja-build patchelf unzip flex bison git perl python3-pip \
+            glslang-tools curl zip libclc-dev libva-dev pkg-config \
+            python3-mako python3-jinja2
           pip3 install --break-system-packages meson mako
 
       - name: Build Drivers
@@ -36,6 +39,7 @@ jobs:
           path: turnip_workdir/*.zip
 
       - name: Release
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}

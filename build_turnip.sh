@@ -3,7 +3,6 @@ set -o pipefail
 
 # ============================================================
 # Turnip Adreno 6xx/8xx & Mali – V5 FPS BOOST BRUTAL
-# +15~25 FPS reais (FPS, desempenho, stutter minimizado)
 # ============================================================
 
 deps="git meson ninja patchelf unzip curl pip flex bison zip glslangValidator python3"
@@ -35,6 +34,19 @@ check_deps(){
     pip install mako --break-system-packages &> /dev/null || true
 }
 
+apply_patch() {
+    local patch_file=$1
+    if [ -f "$patch_file" ]; then
+        echo "[*] Tentando aplicar $patch_file..."
+        # Tenta aplicar com --forward para ignorar se já aplicado, e --batch para não pedir input
+        if patch -p1 --forward --batch --dry-run < "$patch_file" > /dev/null 2>&1; then
+            patch -p1 --forward --batch < "$patch_file" || echo "Falha ao aplicar $patch_file (mesmo com dry-run ok)"
+        else
+            echo "[!] Patch $patch_file já aplicado ou incompatível. Pulando."
+        fi
+    fi
+}
+
 prepare_workdir(){
     mkdir -p "$workdir" && cd "$workdir"
 
@@ -50,23 +62,21 @@ prepare_workdir(){
     git clone "$mesasrc" --depth=1 "$srcfolder"
     cd "$srcfolder"
 
-    # ── Aplicar patches FPS MAX ─────────────────────────────
+    # ── Aplicar patches ─────────────────────────────
     PATCHDIR="../../patches"
-    WORKDIR_PATCHES="../.."
+    ROOTDIR="../.."
     
     echo "[*] Aplicando patches da pasta patches/..."
-    for p in "$PATCHDIR"/*.patch; do
-        if [ -f "$p" ]; then
-            echo "[*] Aplicando $p..."
-            patch -p1 < "$p" || echo "Falha ao aplicar $p"
-        fi
-    done
+    # Ordem específica para evitar conflitos conhecidos
+    apply_patch "$PATCHDIR/force_sysmem_no_autotuner.patch"
+    apply_patch "$PATCHDIR/vk_sync_timeline.patch"
+    apply_patch "$PATCHDIR/quest3.patch"
+    apply_patch "$PATCHDIR/tu_gen8_clean.patch"
 
-    echo "[*] Aplicando patches da raiz e turnip_workdir/..."
-    # Aplicar patches específicos que vi no repo
-    [ -f "$WORKDIR_PATCHES/tu8_kgsl_26.patch" ] && patch -p1 < "$WORKDIR_PATCHES/tu8_kgsl_26.patch" || true
-    [ -f "$WORKDIR_PATCHES/tu_gen8.patch" ] && patch -p1 < "$WORKDIR_PATCHES/tu_gen8.patch" || true
-    [ -f "$WORKDIR_PATCHES/39751.patch" ] && patch -p1 < "$WORKDIR_PATCHES/39751.patch" || true
+    echo "[*] Aplicando patches da raiz..."
+    apply_patch "$ROOTDIR/tu8_kgsl_26.patch"
+    apply_patch "$ROOTDIR/tu_gen8.patch"
+    apply_patch "$ROOTDIR/39751.patch"
 }
 
 build_lib_for_android(){
@@ -90,6 +100,8 @@ endian = 'little'
 EOF
 
     echo "[*] Configurando Meson..."
+    # Adicionado -Dgallium-drivers= para focar apenas no vulkan se necessário, 
+    # mas mantendo o padrão do usuário com adições de segurança
     meson setup build-android \
         --cross-file "../../android-aarch64.txt" \
         -Dbuildtype=release \
@@ -100,10 +112,12 @@ EOF
         -Dvulkan-drivers=freedreno \
         -Dfreedreno-kmds=kgsl,msm \
         -Dc_args="$OPT_CFLAGS" \
-        -Dcpp_args="$OPT_CXXFLAGS"
+        -Dcpp_args="$OPT_CXXFLAGS" \
+        -Dllvm=disabled \
+        -Dgallium-drivers=
 
     echo "[*] Iniciando Ninja..."
-    ninja -C build-android
+    ninja -C build-android src/freedreno/vulkan/libvulkan_freedreno.so
 
     echo "[*] Empacotando driver..."
     mkdir -p output
