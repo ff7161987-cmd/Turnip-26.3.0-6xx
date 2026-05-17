@@ -1,0 +1,18 @@
+diff --git a/src/freedreno/vulkan/tu_cmd_buffer.cc b/src/freedreno/vulkan/tu_cmd_buffer.cc
+index 2652eb1..e7f9c2a 100644
+--- a/src/freedreno/vulkan/tu_cmd_buffer.cc
++++ b/src/freedreno/vulkan/tu_cmd_buffer.cc
+@@ -985,6 +985,12 @@ static bool
+ use_sysmem_rendering(struct tu_cmd_buffer *cmd,
+                      struct tu_renderpass_result **autotune_result)
+ {
++    // Força o uso de sysmem rendering para máxima compatibilidade
++    // e performance em GPUs Mali e Adreno.
++    // Atenção: garante que GMEM não será usado, evitando problemas de overflow.
++    cmd->state.rp.gmem_disable_reason = "Forced sysmem for full compatibility";
++    *autotune_result = nullptr; // evita autotuning que pode gerar stalls
++    return true;
++
+    if (TU_DEBUG(SYSMEM)) {
+       cmd->state.rp.gmem_disable_reason = "TU_DEBUG(SYSMEM)";
+       return true;
