@@ -52,10 +52,21 @@ prepare_workdir(){
 
     # ── Aplicar patches FPS MAX ─────────────────────────────
     PATCHDIR="../../patches"
-    echo "[*] Aplicando patches..."
-    patch -p1 < "$PATCHDIR/force_sysmem_no_autotuner.patch" || echo "Falha patch autotuner"
-    patch -p1 < "$PATCHDIR/vk_sync_timeline.patch" || echo "Falha patch vk_sync"
-    patch -p1 < "$PATCHDIR/fp16_native.patch" || echo "Falha FP16 patch"
+    WORKDIR_PATCHES="../.."
+    
+    echo "[*] Aplicando patches da pasta patches/..."
+    for p in "$PATCHDIR"/*.patch; do
+        if [ -f "$p" ]; then
+            echo "[*] Aplicando $p..."
+            patch -p1 < "$p" || echo "Falha ao aplicar $p"
+        fi
+    done
+
+    echo "[*] Aplicando patches da raiz e turnip_workdir/..."
+    # Aplicar patches específicos que vi no repo
+    [ -f "$WORKDIR_PATCHES/tu8_kgsl_26.patch" ] && patch -p1 < "$WORKDIR_PATCHES/tu8_kgsl_26.patch" || true
+    [ -f "$WORKDIR_PATCHES/tu_gen8.patch" ] && patch -p1 < "$WORKDIR_PATCHES/tu_gen8.patch" || true
+    [ -f "$WORKDIR_PATCHES/39751.patch" ] && patch -p1 < "$WORKDIR_PATCHES/39751.patch" || true
 }
 
 build_lib_for_android(){
